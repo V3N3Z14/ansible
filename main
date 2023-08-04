@@ -1,0 +1,449 @@
+Ansible Systax
+
+
+ansible (Group/servername) -m (modulo) -a (argument) -u (username) --become
+
+
+Apt-get update
+
+ansible all -i hosts --become -m apt -a "update_cache=yes"
+
+
+
+
+
+
+
+ansible webservers -i hosts --become -m apt -a "name=apache2 state=present"
+
+
+
+
+
+ansible database -i hosts --become -m apt -a "name=mysql-server state=present"
+
+
+
+
+
+ansible database -i hosts -m service -a "name=mysql state=started"
+
+
+
+ansible all -a "uptime"
+
+
+
+ansible servers -m shell -a "systemctl status sshd"
+
+
+
+ansible servers -m command -a "df -h"
+
+
+
+ansible servers-m copy -a "src=/root/nombrearchivo dest=/home/ansible"
+
+
+
+ansible servers -m yum -a "name=wget state=present" 
+
+
+
+crear usuarios
+
+ansible servers -m user -a "name=debian password=example"
+
+
+Instalar un paquete:
+ansible all -i hosts --become -m apt -a "name=vim state=present"
+
+
+comandos:
+ansible all -a "apt update" --become
+ansible all -a "reboot" --become
+ansible webserver -a "apt install apache2" --become
+ansible all -a "df -h"
+ansible all -m copy -a "src=sample.txt dest=/home/ubuntu/sample.txt"
+ansible pruebascomandos -m apt -a "name=ntp state=present" -b
+datos del servicio(ansible pruebascomandos -m service -a "name=ntp")
+crear grupos(ansible pruebascomandos -m group -a "name=admin state=present" -b)
+borrar grupo(ansible pruebascomandos -m group -a "name=admin state=absent" -b)
+crear usuario y agregarlo a un grupo(ansible pruebascomandos -m user -a "name=luisdieguez group=admin create_home=yes" -b)
+comprobar permisos de un archivo(ansible pruebascomandos -m stat -a "path=/etc/host")
+copia archivos desde los servidores al nuestro(ansible pruebascomandos -m fetch -a "src=/etc/hosts dest=/tmp/")
+crea un directorio con permiso 700:
+ansible pruebascomandos -m file -a "path=/tmp/test mode=700 state=directory"
+crea un archivo:
+ansible pruebascomandos -m file -a "path=/tmp/test/archivo.vacio.prueba state=touch"
+borra de forma recursiva:
+ansible pruebascomandos -m file -a "path=/tmp/test/archivo.vacio.prueba state=absent"
+
+Indicaciones:
+
+absent : Los directorios se eliminarán de forma recursiva y los archivos o enlaces simbólicos se desvincularán.
+directory : Crea un directorio.
+file : Opción por defecto. Hace un stat.
+hard : Crea un enlace físico.
+link : Crea un enlace simbólico.
+touch : Crea un archivo vacío.
+
+Modulo CRON:
+
+ansible pruebascomandos -m cron -a "name='ejemplo' weekday=2 hour=4 minute=0 job='/script.sh'"
+ansible pruebascomandos -m cron -a "name='ejemplo' month=1-3 weekday=2 hour=4 minute=0 job='/script.sh'"
+
+ansible pruebascomandos -m setup
+ansible pruebascomandos -m setup -a "filter=*ipv4"
+
+-------------------------------------------
+state: Tenemos varias opciones:
+absent: Borra el paquete especificado en name. El comando Debian sería apt-get remove.
+build-dep: Instala el paquete especificado en name. El comando Debian sería apt-get build-dep. Este estado se usa a la hora de desarrollar un paquete o para instalar una librería desde código fuente.
+latest: Instala el paquete especificado en name. Hace una actualización para comprobar que la lista de paquetes disponibles y sus versiones sea la última. El comando Debian sería apt-get update && apt-get install.
+present: Instala el paquete especificado en name. A diferencia del anterior latest, solo se encarga de comprobar que exista el paquete. El comando Debian sería apt-get install.
+fixed: Sirve para arreglar dependencias rotas del paquete especificado en name.
+-------------------------------------------
+
+(https://ualmtorres.github.io/CursoAnsible/tutorial/)
+aws, docker, VMware (https://docs.ansible.com/ansible/2.4/list_of_cloud_modules.html#docker)
+
+Añadir repositorios: 
+--------------------------------------------------------------------------------------------------
+---
+
+- name: apt_repository to manage APT repositories
+  gather_facts: false
+  hosts: all
+  tasks:
+    - name: "Add APT OpenStack repository for Ubuntu Xenial"
+      apt_repository:
+        repo: "deb http://ubuntu-cloud.archive.canonical.com/ubuntu xenial-updates/ocata main"
+  state: absent /elimina el repositorio o sin el lo agrega
+--------------------------------------------------------------------------------------------------
+Remover paquetes:
+-----------------------------------------------------------------------------------
+---
+
+- name: Remove apt packages
+  gather_facts: false
+  hosts: all
+
+  tasks:
+    - name: Removing phpmyadmin
+      apt:
+        name: phpmyadmin
+        state: absent
+---------------------------------------------------------------------------------- 
+Instalar paquetes:
+----------------------------------------------------------------------------------
+---
+
+- name: Blockinfile to edit files
+  gather_facts: false
+  hosts: all
+  vars: 
+    packages:
+      - mysql-server
+      - phpmyadmin
+
+  tasks:
+    - name: Install packages old style with explicit list
+      apt:
+        name: "{{ item }}" 
+      with_items: 
+        - mysql-server
+        - phpmyadmin
+----------------------------------------------------------------------------------
+Ejecución de comandos:
+----------------------------------------------------------------------------------
+---
+
+- name: Run commands with shell
+  hosts: all
+
+  tasks:
+    - name: Copy sample-template.txt to sample-template.bak
+      shell: 'cp sample-template.txt sample-template.bak' 
+      args:
+        chdir: /home/ubuntu 
+-----------------------------------------------------------------------------------
+Crear archivo y agregar tributos:
+-----------------------------------------------------------------------------------
+---
+
+- name: Run file commands
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Create a directory
+      file: 
+        path: /home/ubuntu/myfolder
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Delete sample-template.bak file
+      file:
+        path: /home/ubuntu/sample-template.bak
+        state: absent 
+-------------------------------------------------------------------------------------
+Restaurar un servicio:
+-------------------------------------------------------------------------------------
+---
+
+- name: Restart services
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Restart MySQL and Apache
+      service:
+        name: "{{ item }}" 
+        state: restarted
+      with_items: 
+        - mysql
+        - apache2
+--------------------------------------------------------------------------------------
+Reinciar varios servidores:
+--------------------------------------------------------------------------------------
+---
+
+- name: Reboot and wait
+  hosts: all
+
+  tasks:
+    - name: Rebooting
+      shell: sleep 2 && reboot
+      async: 1
+      poll: 0
+
+    - name: Waiting for rebooting
+      wait_for_connection:
+        delay: 15
+        sleep: 10
+        timeout: 300
+
+    - debug:
+        msg: "{{ inventory_hostname }} is up and running"
+----------------------------------------------------------------------------------------
+
+
+
+---
+- hosts: all
+  become: yes 
+
+  tasks:
+    #This Task run a scritp in py:
+    - name: Run a Script using an executable in a system path
+      command: python3.9 /home/debian/some_directory/ejemplo.py
+      tags: run_script
+    #This Task copy some file to target:
+    - synchronize:
+        src: /etc/ansible/{{ item }}
+        dest: /home/debian/some_directory/{{ item }}
+      with_items:
+        - ejemplo_uno.sh
+      tags: copy_some_file
+    #This Task active a specific cron:
+    - name: Create an entry
+      ansible.builtin.cron:
+        name: "a job for update"
+        special_time: reboot
+        job: "/tmp/job.sh"
+      tags: cronjob_specific_job
+    #Create a job on Crontab
+    - name: Create a Cron-job
+      cron: minute="15" hour="23" weekday="*"
+            name="Create_file_probe"
+            user="debian"
+            job="/home/debian/some_directory/ejemplo_uno.sh"
+      tags: cronjob
+    #This Task could make recursively change ownership of a directory:
+    - name: Recursively new ownership
+      ansible.builtin.file:
+        path: /home/debian/some_directory
+        state: directory
+        recurse: yes
+        owner: root
+        group: root
+      tags: new_ownership_recursively_directory
+    #This Task create a directory if it does not exist:
+    - name: Create a directory
+      ansible.builtin.file:
+        path: /home/debian/some_directory
+        state: directory
+        mode: '0755'
+      tags: create_directory
+    #This Task create a symbolic link
+    - name: Create a symbolic link
+      ansible.builtin.file:
+        src: /bin/java
+        dest: /etc/nuewpath
+        owner: root
+        group: root
+        state: link
+      tags: create_link
+    #This Task give permissions to an existing file:
+    - name: Give permission
+      ansible.builtin.file:
+        path: /home/debian/some_directory/ejemplo.py
+        owner: root
+        group: root
+        mode: '1755'
+      tags: give_permissions
+    #This Task remove a specific file:
+    - name: Delete file
+      ansible.builtin.file:
+        path: /home/debian/prueba
+        state: absent
+      tags: remove_file
+    #This Task recursively remove directory:
+    - name: Recursively remove directory
+      ansible.builtin.file:
+        path: /home/debian/some_directory
+        state: absent
+      tags: remove_recursively_directory
+    #This Task copy some file from Target in ansible-master-host:
+    - name: Copy some remote file on ansible-master
+      ansible.builtin.fetch:
+        src: /etc/passwd
+        dest: /home/debian/ejemplo
+      tags: copy_file_on_Host
+    #This Task execute a script:
+    - name: Run a script
+      command: bash /home/debian/some_directory/ejemplo_uno.sh
+      tags: Run_script
+    #This Task make Reboot!! Take care!!:
+    - name: Reboot
+      become: true
+      shell: reboot
+      tags: reboot
+    #This Task Restart service httpd, in all cases:
+    - name: Restart service httpd
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
+      tags: restart_service_httpd
+    #This Task Stop service httpd, if started:
+    - name: Stop service httpd
+      ansible.builtin.service:
+        name: httpd
+        state: stopped
+      tags: Stopp_httpd
+    #This Task Start service httpd, if not started:
+    - name: Start service
+      ansible.builtin.service:
+        name: httpd
+        state: started
+      tags: Start_httpd
+    #This Task Restart Network service for interface eth0:
+    - name: Restart Network Service
+      ansible.builtin.service:
+        name: network
+        state: restarted
+        args: eth0
+      tags: Restard_network
+    #This Task make SHUTDOWN!! Take Care!!:
+    - name: shutdown
+      become: true
+      shell: shutdown -h now
+      tags: shutdown
+    #This Task Install specific package
+    - name: Install latest version of "openjdk-6-jdk" ignoring "install-recommends"
+      become: true
+      apt:
+        name: openjdk-6-jdk
+        state: latest
+        install_recommends: no
+      tags: Install_specific_package
+    #This Task Install a list of Packages
+    - name: Install list of Package
+      become: true
+      apt:
+        pkg:
+        - ntp
+        - rsync
+        - python  
+      tags: Install_list_Package
+    #This Task make Update:
+    - name: Update
+      become: true
+      shell: apt-get update && apt-get upgrade
+      tags: Update
+    #This task create groups:
+    - name: add a group
+      group:
+        name={{ item }}
+        state=present
+      with_items:
+        - develotment
+        - engeneer
+        - admin
+      tags: add_new_group
+    #This task adds several users on the target machine
+    - name: add several users
+      user:
+        name={{ item }}
+        state=present
+        groups=admin
+        password="$y$j9T$MeyhzlJmugB3Od49iy6No0$KX4zM5Z4A9PTlKKStBJCLzs8BDzb3kMHqznSRpnRau0"
+        shell=/bin/bash
+      with_items:
+        - userone
+        - usertwo
+        - userthree
+      tags: add_new_user
+    #This task make passwd expire
+    - name: passwd expire
+      become: true
+      shell: chage -d 0 "{{ item }}"
+      with_items:
+        - userone
+        - usertwo
+        - userthree
+      tags: passwd_expire  
+    #This task generate public keys for user
+    - name: generate ssh key for a user
+      user:
+        name={{ item }}
+        generate_ssh_key=yes
+        ssh_key_bits=4896
+        ssh_key_file=.ssh/id_rsa
+      with_items:
+        - userone
+      tags: generate_ssh_keys
+    #This task is to copy the public keys to user account
+    - name: update authorized keys for a user
+      authorized_key:
+        user: userone
+        state: present
+        key: "{{ lookup('file','/home/userone/.ssh/id_rsa.pub') }}"
+      tags: copy_pub_key
+    #This Task is to delete the users
+    - name: delete several users
+      user:
+        name={{ item }}
+        state=absent
+      with_items:
+        - userone
+        - usertwo
+        - userthree
+      tags: remove_users
+    #this Task is to delete the group
+    - name: delete several group
+      group: 
+        name={{ item }}
+        state=absent
+      with_items:
+        - develotment
+        - engeneer
+        - admin
+      tags: remove_group
+
+
+
+
+
